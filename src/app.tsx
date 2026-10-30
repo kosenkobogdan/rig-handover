@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { loadConfig, type RigConfig } from './config.js';
-import { nightExists, readNight, sortDigest } from './digest/read.js';
+import { rowsForNight } from './digest/read.js';
 import { lane } from './lane.js';
 import { readStatus } from './status.js';
 import { DigestBoard } from './views/digest.js';
@@ -22,13 +22,20 @@ export function createApp(config: RigConfig = loadConfig()) {
 
   app.get('/digest/:night', (c) => {
     const night = c.req.param('night');
-    if (!nightExists(config.runsDir, night)) return c.notFound();
-    const rows = sortDigest(readNight(config.runsDir, night));
+    const rows = rowsForNight(config.runsDir, night);
+    if (!rows) return c.notFound();
     return c.html(
       <Layout title={`digest ${night}`} lane={lane()}>
         <DigestBoard night={night} rows={rows} />
       </Layout>,
     );
+  });
+
+  app.get('/api/digest/:night', (c) => {
+    const night = c.req.param('night');
+    const rows = rowsForNight(config.runsDir, night);
+    if (!rows) return c.notFound();
+    return c.json(rows);
   });
 
   return app;

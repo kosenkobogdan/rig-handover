@@ -88,3 +88,8 @@ export function nightExists(runsDir: string, night: string): boolean {
 export function sortDigest(rows: DigestRow[]): DigestRow[] {
   return [...rows].sort((a, b) => a.job.localeCompare(b.job));
 }
+
+export function rowsForNight(runsDir: string, night: string): DigestRow[] | null {
+  if (!nightExists(runsDir, night)) return null;
+  return sortDigest(readNight(runsDir, night));
+}
