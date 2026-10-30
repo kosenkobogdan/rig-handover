@@ -38,20 +38,26 @@ function addEvent(row: DigestRow, ev: Event): void {
   row.owner = ev.owner;
 }
 
-export const readNight: ReadNight = (runsDir, night) => {
+export type NightRead = { rows: DigestRow[]; skipped: number };
+
+export function loadNight(runsDir: string, night: string): NightRead {
   const text = readFileSync(join(runsDir, `${night}.jsonl`), 'utf8');
   const rows = new Map<string, DigestRow>();
   const order: string[] = [];
+  let skipped = 0;
 
   for (const line of text.split('\n')) {
     if (line.trim() === '') continue;
     const ev = parseLine(line);
-    if (!ev) continue;
+    if (!ev) {
+      skipped += 1;
+      continue;
+    }
     const existing = rows.get(ev.job);
     if (existing) {
       addEvent(existing, ev);
     } else {
-      rows.set(ev.job, {
+      const row: DigestRow = {
         job: ev.job,
         owner: ev.owner,
         runs: 1,
@@ -60,10 +66,13 @@ export const readNight: ReadNight = (runsDir, night) => {
         lastError: ev.error,
         firstAt: ev.at,
         lastAt: ev.at,
-      });
+      };
+      rows.set(ev.job, row);
       order.push(ev.job);
     }
   }
 
-  return order.map((job) => rows.get(job)!);
-};
+  return { rows: order.map((job) => rows.get(job)).filter((r): r is DigestRow => r !== undefined), skipped };
+}
+
+export const readNight: ReadNight = (runsDir, night) => loadNight(runsDir, night).rows;

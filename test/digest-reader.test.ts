@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readNight } from '../src/digest/read.js';
+import { loadNight, readNight } from '../src/digest/read.js';
 
 describe('readNight', () => {
   it('reads five jobs from runs/2026-10-28.jsonl', () => {
@@ -61,5 +61,11 @@ describe('readNight', () => {
       lastStatus: 'ok',
       lastError: null,
     });
+  });
+
+  it('counts a bad line and still returns the five jobs', () => {
+    const night = loadNight('runs', '2026-10-28');
+    expect(night.skipped).toBe(1);
+    expect(night.rows).toHaveLength(5);
   });
 });
