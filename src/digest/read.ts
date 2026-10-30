@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { DigestRow, JobStatus, ReadNight } from './types.js';
 
@@ -76,3 +76,15 @@ export function loadNight(runsDir: string, night: string): NightRead {
 }
 
 export const readNight: ReadNight = (runsDir, night) => loadNight(runsDir, night).rows;
+
+export function nightFile(runsDir: string, night: string): string {
+  return join(runsDir, `${night}.jsonl`);
+}
+
+export function nightExists(runsDir: string, night: string): boolean {
+  return existsSync(nightFile(runsDir, night));
+}
+
+export function sortDigest(rows: DigestRow[]): DigestRow[] {
+  return [...rows].sort((a, b) => a.job.localeCompare(b.job));
+}
