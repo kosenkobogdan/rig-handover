@@ -1,0 +1,69 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import type { DigestRow, JobStatus, ReadNight } from './types.js';
+
+type Event = {
+  at: string;
+  job: string;
+  status: JobStatus;
+  owner: string | null;
+  error: string | null;
+};
+
+function isStatus(v: unknown): v is JobStatus {
+  return v === 'ok' || v === 'retry' || v === 'fail';
+}
+
+function parseLine(line: string): Event | null {
+  let v: unknown;
+  try {
+    v = JSON.parse(line);
+  } catch {
+    return null;
+  }
+  if (typeof v !== 'object' || v === null) return null;
+  const o = v as Record<string, unknown>;
+  if (typeof o.at !== 'string' || typeof o.job !== 'string' || !isStatus(o.status)) return null;
+  const owner = o.owner === undefined || o.owner === null ? null : typeof o.owner === 'string' ? o.owner : null;
+  const error = typeof o.error === 'string' ? o.error : null;
+  return { at: o.at, job: o.job, status: o.status, owner, error };
+}
+
+function addEvent(row: DigestRow, ev: Event): void {
+  row.runs += 1;
+  if (ev.status === 'retry') row.retries += 1;
+  row.lastStatus = ev.status;
+  row.lastError = ev.error;
+  row.lastAt = ev.at;
+  row.owner = ev.owner;
+}
+
+export const readNight: ReadNight = (runsDir, night) => {
+  const text = readFileSync(join(runsDir, `${night}.jsonl`), 'utf8');
+  const rows = new Map<string, DigestRow>();
+  const order: string[] = [];
+
+  for (const line of text.split('\n')) {
+    if (line.trim() === '') continue;
+    const ev = parseLine(line);
+    if (!ev) continue;
+    const existing = rows.get(ev.job);
+    if (existing) {
+      addEvent(existing, ev);
+    } else {
+      rows.set(ev.job, {
+        job: ev.job,
+        owner: ev.owner,
+        runs: 1,
+        retries: ev.status === 'retry' ? 1 : 0,
+        lastStatus: ev.status,
+        lastError: ev.error,
+        firstAt: ev.at,
+        lastAt: ev.at,
+      });
+      order.push(ev.job);
+    }
+  }
+
+  return order.map((job) => rows.get(job)!);
+};
